@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Space Object Detection</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)),
+                        url('https://images.nasa.gov/images/mars2020_PIA23764_1600.jpg');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            color: #fff;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(3px);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            color: #00ff9d;
+            text-shadow: 0 0 10px rgba(0, 255, 157, 0.5);
+        }
+
+        .upload-section {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            padding: 2rem;
+            border-radius: 15px;
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .upload-btn {
+            position: relative;
+            display: inline-block;
+            padding: 1rem 2rem;
+            background: #00ff9d;
+            color: #000;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+            overflow: hidden;
+        }
+
+        .upload-btn:hover {
+            background: #00cc7d;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 255, 157, 0.4);
+        }
+
+        .upload-btn input[type="file"] {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .results-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .result-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            overflow: hidden;
+            transition: transform 0.3s ease;
+        }
+
+        .result-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .result-image {
+            width: 100%;
+            height: 300px;
+            object-fit: cover;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 2rem 0;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #00ff9d;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .status-message {
+            margin-top: 1rem;
+            color: #00ff9d;
+        }
+
+        .before-after-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            padding: 1rem;
+        }
+
+        .image-label {
+            text-align: center;
+            padding: 0.5rem;
+            background: rgba(0, 255, 157, 0.1);
+            border-radius: 5px;
+            margin-bottom: 0.5rem;
+            grid-column: span 1;
+        }
+
+        .result-image {
+            width: 100%;
+            height: 250px;
+            object-fit: contain;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            padding: 0.5rem;
+        }
+
+        .result-card {
+            padding: 1rem;
+        }
+
+        .background-video {
+            position: fixed;
+            right: 0;
+            bottom: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -1;
+        }
+
+        .background-video video {
+            position: fixed;
+            right: 0;
+            bottom: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            filter: brightness(0.8) contrast(1.1) saturate(1.1);
+        }
+
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal.active {
+            display: flex;
+            opacity: 1;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            max-width: 90%;
+            max-height: 90vh;
+            transform: scale(0.7);
+            transition: transform 0.3s ease;
+        }
+
+        .modal.active .modal-content {
+            transform: scale(1);
+        }
+
+        .modal-image {
+            max-width: 100%;
+            max-height: 90vh;
+            object-fit: contain;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0, 255, 157, 0.3);
+        }
+
+        .close-modal {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            color: #fff;
+            font-size: 30px;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+        }
+
+        .close-modal:hover {
+            transform: rotate(90deg);
+            color: #00ff9d;
+        }
+
+        /* Add cursor pointer to result images */
+        .result-image {
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+
+        .result-image:hover {
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body>
+    <div class="background-video">
+        <video autoplay muted loop id="myVideo">
+            <source src="../img/new.mp4" type="video/mp4">
+        </video>
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <h1>Space Object Detection</h1>
+            <p>Upload images to detect craters and boulders</p>
+        </div>
+
+        <div class="upload-section">
+            <button class="upload-btn">
+                Choose Images
+                <input type="file" id="imageInput" accept="image/*" multiple>
+            </button>
+            <p class="status-message" id="statusMessage"></p>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="loading-spinner"></div>
+            <p>Processing images...</p>
+        </div>
+
+        <div class="results-section" id="resultsSection">
+            <!-- Results will be dynamically added here -->
+        </div>
+    </div>
+
+    <!-- Add Modal HTML -->
+    <div class="modal" id="imageModal">
+        <span class="close-modal" onclick="closeModal()">×</span>
+        <div class="modal-content">
+            <img class="modal-image" id="modalImage" src="" alt="Preview">
+        </div>
+    </div>
+
+    <script>
+        const imageInput = document.getElementById('imageInput');
+        const resultsSection = document.getElementById('resultsSection');
+        const loading = document.getElementById('loading');
+        const statusMessage = document.getElementById('statusMessage');
+
+        async function sendImageToServer(file) {
+            const formData = new FormData();
+            formData.append('image', file);
+
+            try {
+                const response = await fetch('http://localhost:5000/detect', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                if (data.success) {
+                    return data.image;
+                } else {
+                    throw new Error(data.error);
+                }
+            } catch (error) {
+                throw error;
+            }
+        }
+
+        imageInput.addEventListener('change', async (e) => {
+            const files = e.target.files;
+            
+            if (files.length === 0) return;
+
+            // Show loading
+            loading.style.display = 'block';
+            statusMessage.textContent = `Processing ${files.length} image(s)...`;
+            resultsSection.innerHTML = '';
+
+            for (const file of files) {
+                try {
+                    // Create a preview card
+                    const card = document.createElement('div');
+                    card.className = 'result-card';
+
+                    // Create image containers for before and after
+                    const beforeAfterContainer = document.createElement('div');
+                    beforeAfterContainer.className = 'before-after-container';
+
+                    // Original image
+                    const originalImg = document.createElement('img');
+                    originalImg.className = 'result-image';
+                    
+                    // Processed image
+                    const processedImg = document.createElement('img');
+                    processedImg.className = 'result-image';
+
+                    // Labels
+                    const originalLabel = document.createElement('div');
+                    originalLabel.className = 'image-label';
+                    originalLabel.textContent = 'Original';
+
+                    const processedLabel = document.createElement('div');
+                    processedLabel.className = 'image-label';
+                    processedLabel.textContent = 'Detected Objects';
+
+                    // Read and display the original image
+                    const reader = new FileReader();
+                    reader.onload = async (e) => {
+                        originalImg.src = e.target.result;
+                        
+                        try {
+                            // Send to server and get processed image
+                            const processedImageData = await sendImageToServer(file);
+                            processedImg.src = processedImageData;
+                            // Add click event for modal preview
+                            processedImg.onclick = () => openModal(processedImageData);
+                            statusMessage.textContent = 'Processing complete!';
+                        } catch (error) {
+                            console.error('Error processing image:', error);
+                            statusMessage.textContent = 'Error processing image. Please try again.';
+                        }
+                    };
+                    reader.readAsDataURL(file);
+
+                    // Add images and labels to the card
+                    beforeAfterContainer.appendChild(originalLabel);
+                    beforeAfterContainer.appendChild(originalImg);
+                    beforeAfterContainer.appendChild(processedLabel);
+                    beforeAfterContainer.appendChild(processedImg);
+                    card.appendChild(beforeAfterContainer);
+                    resultsSection.appendChild(card);
+
+                } catch (error) {
+                    console.error('Error processing image:', error);
+                    statusMessage.textContent = 'Error processing image. Please try again.';
+                }
+            }
+
+            // Hide loading
+            loading.style.display = 'none';
+        });
+
+        // Modal functions
+        const modal = document.getElementById('imageModal');
+        const modalImg = document.getElementById('modalImage');
+
+        function openModal(imageSrc) {
+            modalImg.src = imageSrc;
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden'; // Prevent scrolling
+        }
+
+        function closeModal() {
+            modal.classList.remove('active');
+            document.body.style.overflow = 'auto'; // Restore scrolling
+        }
+
+        // Close modal when clicking outside the image
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                closeModal();
+            }
+        });
+
+        // Close modal with Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeModal();
+            }
+        });
+    </script>
+</body>
+</html>
